@@ -3,7 +3,8 @@ name: Deploy GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # Default branch for this repo is master (also accept main).
+    branches: [master, main]
   workflow_dispatch:
 
 permissions:
@@ -28,7 +29,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Official source of the site base path (/<repo>/ for Project Pages).
+      # Official base_path for Project Pages: /<repository-name>/
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
@@ -36,25 +37,40 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Resolve and build with correct base
         env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: |
           set -euo pipefail
+          REPO="${GITHUB_REPOSITORY##*/}"
+          # Prefer configure-pages output; fall back to /<repo>/ for Project Pages.
+          if [ -n "${PAGES_BASE_PATH:-}" ]; then
+            BASE_PATH="${PAGES_BASE_PATH}"
+          elif [ "${REPO}" = "${GITHUB_REPOSITORY_OWNER}.github.io" ]; then
+            BASE_PATH="/"
+          else
+            BASE_PATH="/${REPO}/"
+          fi
+          # Normalize trailing slash (keep single "/")
+          if [ "${BASE_PATH}" != "/" ]; then
+            BASE_PATH="/${BASE_PATH#/}"
+            BASE_PATH="${BASE_PATH%/}/"
+          fi
           echo "GITHUB_REPOSITORY=${GITHUB_REPOSITORY}"
+          echo "PAGES_BASE_PATH=${PAGES_BASE_PATH:-<empty>}"
           echo "BASE_PATH=${BASE_PATH}"
+          export BASE_PATH
           npx tsc -b
-          # Pass --base explicitly so asset URLs cannot fall back to "/".
           npx vite build --base "${BASE_PATH}"
+          echo "BASE_PATH=${BASE_PATH}" >> "$GITHUB_ENV"
 
       - name: Verify asset paths in dist/index.html
-        env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: |
           set -euo pipefail
           echo "---- dist/index.html ----"
           cat dist/index.html
           echo "-------------------------"
+          echo "Checking against BASE_PATH=${BASE_PATH}"
           if [ "${BASE_PATH}" = "/" ]; then
             grep -E 'src="/assets/[^"]+\.js"' dist/index.html
             grep -E 'href="/assets/[^"]+\.css"' dist/index.html
@@ -62,6 +78,11 @@ jobs:
             PREFIX="${BASE_PATH%/}"
             grep -E "src=\"${PREFIX}/assets/[^\"]+\\.js\"" dist/index.html
             grep -E "href=\"${PREFIX}/assets/[^\"]+\\.css\"" dist/index.html
+            # Fail loudly if root /assets/ slipped in
+            if grep -E 'src="/assets/' dist/index.html; then
+              echo "ERROR: root /assets/ path found; base was not applied"
+              exit 1
+            fi
           fi
           echo "Asset path check passed for BASE_PATH=${BASE_PATH}"
 

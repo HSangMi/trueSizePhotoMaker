@@ -30,7 +30,7 @@ npm test
 ### 1. Repository 준비
 
 1. GitHub에 새 repository를 만듭니다.
-2. 이 프로젝트를 push 합니다. (기본 브랜치: `main`)
+2. 이 프로젝트를 push 합니다. (이 repo 기본 브랜치: `master`)
 
 ### 2. Pages 소스 설정
 
@@ -39,7 +39,7 @@ npm test
 
 ### 3. 자동 배포
 
-`main` 브랜치에 push 하면 `.github/workflows/deploy.yml` 이 실행됩니다.
+`master`(또는 `main`) 브랜치에 push 하면 `.github/workflows/deploy.yml` 이 실행됩니다.
 
 1. `npm ci`
 2. repository 이름 기준으로 Vite `base` 결정
