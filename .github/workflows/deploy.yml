@@ -28,29 +28,42 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Resolve Pages base path
-        id: pages_base
-        shell: bash
-        run: |
-          REPO="${GITHUB_REPOSITORY##*/}"
-          OWNER="${GITHUB_REPOSITORY_OWNER}"
-          if [ "$REPO" = "${OWNER}.github.io" ]; then
-            echo "base=/" >> "$GITHUB_OUTPUT"
-          else
-            echo "base=/${REPO}/" >> "$GITHUB_OUTPUT"
-          fi
-          echo "Resolved BASE_PATH=$(cat "$GITHUB_OUTPUT" | sed -n 's/^base=//p')"
+      # Official source of the site base path (/<repo>/ for Project Pages).
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build
-        run: npm run build
         env:
-          BASE_PATH: ${{ steps.pages_base.outputs.base }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: |
+          set -euo pipefail
+          echo "GITHUB_REPOSITORY=${GITHUB_REPOSITORY}"
+          echo "BASE_PATH=${BASE_PATH}"
+          npx tsc -b
+          # Pass --base explicitly so asset URLs cannot fall back to "/".
+          npx vite build --base "${BASE_PATH}"
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Verify asset paths in dist/index.html
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: |
+          set -euo pipefail
+          echo "---- dist/index.html ----"
+          cat dist/index.html
+          echo "-------------------------"
+          if [ "${BASE_PATH}" = "/" ]; then
+            grep -E 'src="/assets/[^"]+\.js"' dist/index.html
+            grep -E 'href="/assets/[^"]+\.css"' dist/index.html
+          else
+            PREFIX="${BASE_PATH%/}"
+            grep -E "src=\"${PREFIX}/assets/[^\"]+\\.js\"" dist/index.html
+            grep -E "href=\"${PREFIX}/assets/[^\"]+\\.css\"" dist/index.html
+          fi
+          echo "Asset path check passed for BASE_PATH=${BASE_PATH}"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

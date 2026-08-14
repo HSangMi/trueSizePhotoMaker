@@ -52,26 +52,38 @@ npm test
 
 | 유형 | Repository 이름 예시 | URL |
 |------|---------------------|-----|
-| Project Pages | `imageMaker` | `https://<username>.github.io/imageMaker/` |
+| Project Pages | `trueSizePhotoMaker` | `https://<username>.github.io/trueSizePhotoMaker/` |
 | User site | `<username>.github.io` | `https://<username>.github.io/` |
+
+흰 화면 + 콘솔에 `/assets/... 404` 가 보이면, 빌드 `base`가 `/`로 나간 것입니다.
+정상 배포 시 JS/CSS는 다음처럼 **repo 경로 아래**에 있어야 합니다.
+
+```text
+https://<username>.github.io/trueSizePhotoMaker/assets/...
+```
 
 ### Vite `base` 설정
 
 배포 경로와 asset 경로가 맞아야 합니다.
 
-- **CI (권장)**: workflow가 `GITHUB_REPOSITORY` 로 `BASE_PATH` 를 자동 설정합니다.
-  - Project Pages → `/<repository-name>/`
+- **CI**: `actions/configure-pages` 의 `base_path` 를 `BASE_PATH`로 넣고,
+  `vite build --base "$BASE_PATH"` 로 명시 빌드합니다.
+  - Project Pages → `/<repository-name>/` (예: `/trueSizePhotoMaker/`)
   - `*.github.io` user site → `/`
+- 빌드 후 `dist/index.html`에 위 경로가 없으면 CI가 실패하도록 검증합니다.
 - **로컬에서 Project Pages 경로로 빌드 확인**:
 
 ```bash
-# 예: repository 이름이 imageMaker 인 경우
-BASE_PATH=/imageMaker/ npm run build
+# 예: repository 이름이 trueSizePhotoMaker 인 경우
+BASE_PATH=/trueSizePhotoMaker/ npm run build
 ```
 
 `BASE_PATH` 를 지정하지 않으면 기본값은 `/` (로컬 개발·미리보기용)입니다.
 
 코드에 repository 이름을 하드코딩하지 않습니다. repository 이름을 바꿔도 CI가 자동으로 맞춥니다.
+
+재배포: 수정 내용을 `main`에 push 한 뒤 Actions에서 workflow가 성공했는지 확인하고,
+브라우저에서 **강력 새로고침**(Ctrl+F5) 하세요.
 
 ### 배포 후 확인
 
